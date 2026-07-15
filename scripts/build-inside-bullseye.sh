@@ -45,6 +45,7 @@ rustc --version
 cargo --version
 
 echo "== Ruffle source =="
+git config --global --add safe.directory /work/ruffle
 git rev-parse HEAD
 git describe --tags --always || true
 
