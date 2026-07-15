@@ -1,0 +1,68 @@
+name: Build Ruffle for TrimUI
+
+on:
+  workflow_dispatch:
+    inputs:
+      ruffle_ref:
+        description: "Ruffle tag/commit to build"
+        required: true
+        default: "nightly-2024-09-26"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ARM64 / Debian Bullseye
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout builder files
+        uses: actions/checkout@v4
+
+      - name: Checkout Ruffle source
+        uses: actions/checkout@v4
+        with:
+          repository: ruffle-rs/ruffle
+          ref: ${{ inputs.ruffle_ref }}
+          path: ruffle
+          fetch-depth: 1
+
+      - name: Prepare cache and output directories
+        run: |
+          mkdir -p             .cache/cargo/registry             .cache/cargo/git             .cache/target             out
+
+      - name: Cache Rust build data
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: ruffle-trimui-${{ runner.arch }}-${{ inputs.ruffle_ref }}-${{ hashFiles('ruffle/Cargo.lock') }}
+          restore-keys: |
+            ruffle-trimui-${{ runner.arch }}-${{ inputs.ruffle_ref }}-
+            ruffle-trimui-${{ runner.arch }}-
+
+      - name: Build inside ARM64 Debian Bullseye
+        run: |
+          docker run --rm             -v "$GITHUB_WORKSPACE:/work"             -v "$GITHUB_WORKSPACE/.cache/cargo/registry:/root/.cargo/registry"             -v "$GITHUB_WORKSPACE/.cache/cargo/git:/root/.cargo/git"             -v "$GITHUB_WORKSPACE/.cache/target:/cargo-target"             -w /work/ruffle             -e CARGO_TARGET_DIR=/cargo-target             -e RUFFLE_REF="${{ inputs.ruffle_ref }}"             debian:bullseye-slim             bash /work/scripts/build-inside-bullseye.sh
+
+      - name: Show compatibility report
+        if: always()
+        run: |
+          echo "==== Output files ===="
+          find out -maxdepth 3 -type f -printf '%p (%k KB)\n' 2>/dev/null || true
+          echo "==== GLIBC report ===="
+          cat out/package/glibc-versions.txt 2>/dev/null || true
+          echo "==== Dynamic libraries ===="
+          cat out/package/ldd.txt 2>/dev/null || true
+
+      - name: Upload Ruffle build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruffle-trimui-aarch64
+          path: |
+            out/ruffle-trimui-bullseye-aarch64.tar.gz
+            out/package/
+          if-no-files-found: error
+          retention-days: 30
