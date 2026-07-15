@@ -136,7 +136,7 @@ done
 
 {
   echo "These libraries were copied from Debian Bullseye ARM64."
-  echo "Use with: LD_LIBRARY_PATH=<game>/lib:\\$LD_LIBRARY_PATH"
+  echo "Use with: LD_LIBRARY_PATH=<game>/lib:${LD_LIBRARY_PATH:-}"
   echo
   find "$OUT/lib" -maxdepth 1 -type f -printf '%f\n' | sort
 } > "$OUT/lib/README.txt"
